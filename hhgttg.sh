@@ -240,7 +240,9 @@ preexec() {
     # PID because the command runs as a *child* of the shell.
     # List of commands to skip spinner
     local cmd="$1"
-    local SKIP_COMMANDS=("cat"\
+    local SKIP_COMMANDS=("ls"\
+                         "neofetch"\
+                         "cat"\
                          "tail"\
                          "sudo"\
                          "vim"\
