@@ -188,9 +188,10 @@ _hhg_spinners() {
         # 3‑frame “arrow” – simple
         [arrow]="🔄 🔃 🔁"
 
-        # 3‑frame “arrow” – simple
+        # 3‑frame “timer” – simple
         [timer]="⏳ ⏱️ ⏲️"
-
+        
+        # 3‑frame “dragon” – simple
         [dragon]="🐍 🐉 🐲"
     )
 
