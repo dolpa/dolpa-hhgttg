@@ -27,6 +27,8 @@ if [ -f ${CONFIG_FILE} ]; then
 fi
 unset MODULE_LOADED
 
+set +m
+
 # ------------------------------------------------------------------
 # 1️⃣  Helper: random quote -------------------------------------------------
 _hhg_quote() {
@@ -179,16 +181,16 @@ _hhg_spinners() {
 
         # 4‑frame “pulse” – simple yet eye‑catching
         [pulse]="⚫ ⚪ ⚫ ⚪"
-        
+
         # 4‑frame “alien” – simple yet eye‑catching
         [alien]="🛸 👽 ⭐ 💫"
-        
+
         # 3‑frame “arrow” – simple
         [arrow]="🔄 🔃 🔁"
-        
+
         # 3‑frame “arrow” – simple
         [timer]="⏳ ⏱️ ⏲️"
-        
+
         [dragon]="🐍 🐉 🐲"
     )
 
@@ -240,33 +242,27 @@ preexec() {
     # PID because the command runs as a *child* of the shell.
     # List of commands to skip spinner
     local cmd="$1"
-    local SKIP_COMMANDS=("ls"\
-                         "neofetch"\
-                         "cat"\
-                         "tail"\
-                         "sudo"\
-                         "vim"\
-                         "nano"\
-                         "less"\
-                         "man"\
-                         "more"\
-                         "top"\
-                         "htop"\
-                         "ssh"\
-                         "bash")
+    local SKIP_COMMANDS=(
+    ls cd pwd echo cat tail head more less man apropos whatis
+    vim nano emacs top htop watch ssh bash zsh sh screen tmux
+    apt apt-get yum dnf zypper pacman snap pip pip3 npm brew
+    ping traceroute curl wget scp rsync ftp sftp
+    df du free uptime who whoami id env hostname
+    date cal uname
+)
     local skip_spin=0
-    
+
     for skip in "${SKIP_COMMANDS[@]}"; do
         if [[ "$cmd" =~ ^[[:space:]]*"$skip" ]]; then
             skip_spin=1
             break  # Skip spinner
         fi
     done
-    
+
     if [[ $skip_spin -eq 1 ]]; then
         return
     fi
-    
+
     (spinner "$$") &
     SPINNER_PID=$!
 }
@@ -291,4 +287,3 @@ precmd() {
 # 7️⃣  Export the hook functions for bash‑preexec to see ------------------
 export -f preexec precmd spinner
 # --------------------------------------------------------------------
-
