@@ -9,14 +9,14 @@
 #   * spinner() – the animation engine
 #====================================================================
 
-# ------------------------------------------------------------------
+# -------------------------------------------------------------------
 # 0️⃣  Configuration: load the configuration
 MODULE_DIR="$(dirname "${BASH_SOURCE[0]}")"
 #echo MODULE_DIR=${MODULE_DIR}
 
 CONFIG_FILE="${MODULE_DIR}/hhgttg.config.sh"
 export MODULE_LOADED=false
-if [ -f ${CONFIG_FILE} ]; then
+if [ -f "${CONFIG_FILE}" ]; then
 #    echo -n "Loading the configuration ... "
     source "${CONFIG_FILE}"
 #    if [ $MODULE_LOADED ]; then
@@ -29,16 +29,16 @@ unset MODULE_LOADED
 
 set +m
 
-# ------------------------------------------------------------------
-# 1️⃣  Helper: random quote -------------------------------------------------
+# -------------------------------------------------------------------
+# 1️⃣  Helper: random quote -----------------------------------------
 _hhg_quote() {
-    # -----------------------------------------------------------------
+    # ---------------------------------------------------------------
     #  A big, mixed‑genre list of sci‑fi movie / TV quotes.
     #  Feel free to add, delete or reorder items – just keep the array
     #  syntax intact.
-    # -----------------------------------------------------------------
+    # ---------------------------------------------------------------
     local quotes=(
-        # ---------- Star Wars ---------------------------------------
+        # ---------- Star Wars --------------------------------------
         "May the Force be with you."
         "I find your lack of faith disturbing."
         "Do. Or do not. There is no try."
@@ -107,7 +107,7 @@ _hhg_quote() {
 }
 
 # ------------------------------------------------------------------
-# 2️⃣  Helper: towel (optional lore) ------------------------------------
+# 2️⃣  Helper: towel (optional lore) --------------------------------
 _hhg_towel() {
     # If the file does not exist, just skip output
     [[ -f "$HOME/.hhgttg/towel.txt" ]] || return
@@ -115,18 +115,18 @@ _hhg_towel() {
     sed -e 's/^/🔹 /' "$HOME/.hhgttg/towel.txt"
 }
 
-# ------------------------------------------------------------------
+# -------------------------------------------------------------------
 # _hhg_spinners – return a *space‑separated* list of frames.
 #   * Each frame is a single “character” (emoji, Unicode glyph, ASCII)
 #   * The function prints the list to STDOUT, which the caller
 #     captures into an array:  local frames=($( _hhg_spinners ))
 #   * You can force a particular set with HHGTTG_SPINNER_SET.
-# ------------------------------------------------------------------
+# -------------------------------------------------------------------
 _hhg_spinners() {
-    # ------------------------------------------------------------------
+    # ---------------------------------------------------------------
     # 1️⃣  Define all available spinner sets.
     #    Keep the syntax:  name="frame1 frame2 frame3 …"
-    # ------------------------------------------------------------------
+    # ---------------------------------------------------------------
     local -A sets=(
         # Classic rotating bar (fallback if env var is empty)
         [classic]="⠁ ⠂ ⠄ ⡀ ⢀ ⠠ ⠐ ⠈"
@@ -190,14 +190,14 @@ _hhg_spinners() {
 
         # 3‑frame “timer” – simple
         [timer]="⏳ ⏱️ ⏲️"
-        
+
         # 3‑frame “dragon” – simple
         [dragon]="🐍 🐉 🐲"
     )
 
-    # ------------------------------------------------------------------
+    # ---------------------------------------------------------------
     # 2️⃣  Decide which set to use.
-    # ------------------------------------------------------------------
+    # ---------------------------------------------------------------
     local set_name="${HHGTTG_SPINNER_SET:-}"   # user‑override, may be empty
     local chosen
 
@@ -211,14 +211,14 @@ _hhg_spinners() {
         chosen="${sets[${keys[RANDOM % ${#keys[@]}]}]}"
     fi
 
-    # ------------------------------------------------------------------
+    # ---------------------------------------------------------------
     # 3️⃣  Echo the space‑separated list – the caller will turn it into an array.
-    # ------------------------------------------------------------------
+    # ---------------------------------------------------------------
     printf "%s" "$chosen"
 }
 
-# ------------------------------------------------------------------
-# 4️⃣  Core spinner function ---------------------------------------------
+# -------------------------------------------------------------------
+# 4️⃣  Core spinner function -----------------------------------------
 spinner() {
     local pid=$1                # PID of the command we watch
     local speed="${HHGTTG_SPINNER_SPEED:-0.12}"   # seconds per frame, can be overridden
@@ -233,9 +233,15 @@ spinner() {
         sleep "$speed"
     done
     # When the loop exits the command is finished
-    printf "\r\e[32m✔️  Done!%*s\e[0m\n" "$(tput cols)" ""
+    local cols
+    if [[ -t 1 ]]; then
+        cols="$(tput cols 2>/dev/null || echo 0)"
+    else
+        cols=0
+    fi
+    printf "\r\e[32m✔️ Done!%*s\e[0m\n" "$cols" ""
 }
-# ------------------------------------------------------------------
+# -------------------------------------------------------------------
 # 5️⃣  Hook: preexec → start spinner --------------------------------
 preexec() {
     # $BASH_COMMAND contains the command line that is about to be executed.
@@ -244,12 +250,10 @@ preexec() {
     # List of commands to skip spinner
     local cmd="$1"
     local SKIP_COMMANDS=(
-    ls cd pwd echo cat tail head more less man apropos whatis
-    vim nano emacs top htop watch ssh bash zsh sh screen tmux
-    apt apt-get yum dnf zypper pacman snap pip pip3 npm brew
-    ping traceroute curl wget scp rsync ftp sftp
-    df du free uptime who whoami id env hostname
-    date cal uname
+        apropos apt apt-get bash brew cal cat cd curl date df dnf du echo emacs \
+        env ftp free head hostname htop id less ls man more nano npm pacman ping \
+        pip pip3 pwd rsync scp screen sftp sh snap ssh tail tmux top traceroute \
+        uname uptime vim watch wc wget whatis who whoami yum zsh zypper
 )
     local skip_spin=0
 
@@ -266,8 +270,12 @@ preexec() {
 
     (spinner "$$") &
     SPINNER_PID=$!
+    # TEST_MODE: output SPINNER_PID so Bats can capture it
+    if [[ -n "$HHG_TEST_MODE" ]]; then
+        echo "$SPINNER_PID"
+    fi
 }
-# ------------------------------------------------------------------
+# -------------------------------------------------------------------
 # 6️⃣  Hook: precmd → stop spinner, show quote/towel ----------------
 precmd() {
     # 1️⃣  Stop the background spinner (if any)
@@ -284,7 +292,7 @@ precmd() {
         echo -e "\e[90m$(_hhg_towel)\e[0m"
     fi
 }
-# ------------------------------------------------------------------
-# 7️⃣  Export the hook functions for bash‑preexec to see ------------------
+# -------------------------------------------------------------------
+# 7️⃣  Export the hook functions for bash‑preexec to see ------------
 export -f preexec precmd spinner
-# --------------------------------------------------------------------
+# -------------------------------------------------------------------
