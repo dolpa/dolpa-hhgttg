@@ -1,39 +1,33 @@
 #!/usr/bin/env bats
 
 # ----------------------------------------------------------------------
-#  Test suite for the hhgttg installer (install.sh)
-#
-#  The suite creates an isolated HOME directory and a temporary copy of the
-#  repository so the installer never touches the real user environment.
-# ----------------------------------------------------------------------
-
-
-# ----------------------------------------------------------------------
 #  Helpers
 # ----------------------------------------------------------------------
+# The helpers set up an isolated environment (HOME, TARGET_DIR, a fake repo)
+# and provide a tiny wrapper to invoke the installer under test.
+# ----------------------------------------------------------------------
+
 setup() {
-  # Create a fresh temporary root directory that will hold everything.
+  # Create a fresh temporary root directory for the whole test run.
   TEST_ROOT="$(mktemp -d)"
   export TEST_ROOT
 
-  # Simulate a clean $HOME for the installer.
+  # Simulated $HOME – the installer will treat this as the real home.
   export HOME="${TEST_ROOT}/home"
   mkdir -p "$HOME"
 
-  # Where the installer script lives relative to this test file.
-  #   BATS_TEST_DIRNAME = directory that contains this .bats file
+  # Directory that holds the installer script (relative to this .bats file).
   export SCRIPT_DIR="${BATS_TEST_DIRNAME}/.."
 
-  # Copy the installer *and* the three module files into an isolated
-  # “repo clone” – this mimics a real checkout.
+  # Copy the installer **and** the module files into an isolated “repo clone”.
   mkdir -p "${TEST_ROOT}/repo"
   cp -R "${SCRIPT_DIR}/." "${TEST_ROOT}/repo/"
 
-  # Work from the fake repo directory – the installer uses BASH_SOURCE[0]
-  # to discover its own location, so we must be inside this directory.
+  # All commands in the tests will be executed from this directory,
+  # mimicking a real checkout.
   cd "${TEST_ROOT}/repo"
 
-  # Target directory used by the installer (defaults to $HOME/.local/…).
+  # Where the installer will place the module files.
   export TARGET_DIR="${HOME}/.local/shell.d/hhgttg"
 }
 
@@ -42,7 +36,7 @@ teardown() {
   rm -rf "$TEST_ROOT"
 }
 
-# Helper – run the installer inside the isolated environment.
+# Run the installer with the isolated environment.
 run_installer() {
   run bash "${TEST_ROOT}/repo/install.sh"
 }
@@ -55,25 +49,24 @@ run_installer() {
 
 @test "Installer creates TARGET_DIR" {
   run_installer
-  [[ "$status" -eq 0 ]]                     # installer must exit cleanly
-  [[ -d "$TARGET_DIR" ]]                    # target directory must exist
+  [[ "$status" -eq 0 ]]           # installer must exit successfully
+  [[ -d "$TARGET_DIR" ]]          # directory must exist
 }
 
-@test "Installer installs the three expected files" {
+@test "Installer installs bash-preexec.sh, hhgttg.sh, hhgttg.config.sh" {
   run_installer
   [[ "$status" -eq 0 ]]
 
-  # All three module files must be present after the run.
   [[ -f "${TARGET_DIR}/bash-preexec.sh" ]]
   [[ -f "${TARGET_DIR}/hhgttg.sh" ]]
   [[ -f "${TARGET_DIR}/hhgttg.config.sh" ]]
 }
 
-@test "Installed files have permission 0644" {
+@test "Installed files have correct permissions (0644)" {
   run_installer
   [[ "$status" -eq 0 ]]
 
-  # Use stat in a portable way – Linux: -c, macOS/BSD: -f
+  # `stat` differs between Linux (‑c) and macOS/BSD (‑f).  Use the one that works.
   if stat --version >/dev/null 2>&1; then
     perms=$(stat -c "%a" "${TARGET_DIR}/hhgttg.sh")
   else
@@ -82,33 +75,29 @@ run_installer() {
   [[ "$perms" -eq 644 ]]
 }
 
-@test "~/.bashrc receives the interactive block exactly once" {
+@test "~/.bashrc receives the interactive block once" {
   run_installer
   [[ "$status" -eq 0 ]]
 
   bashrc="${HOME}/.bashrc"
-  # The installer creates .bashrc if it does not already exist.
-  [[ -f "$bashrc" ]]
+  [[ -f "$bashrc" ]]                     # .bashrc must exist
 
-  # Both markers must be present.
   grep -q "# hhgttg: start" "$bashrc"
   grep -q "# hhgttg: end"   "$bashrc"
 }
 
-@test "Installer is idempotent – second run does NOT duplicate .bashrc block" {
+@test "Installer is idempotent – running twice does NOT duplicate .bashrc block" {
   run_installer
   run_installer
 
   bashrc="${HOME}/.bashrc"
 
-  # There should be exactly one start‑marker (and therefore one end‑marker).
+  # There must be exactly one start‑marker (and consequently one end‑marker).
   count=$(grep -c "# hhgttg: start" "$bashrc")
   [[ "$count" -eq 1 ]]
 }
 
-@test "Installer prints a completion message" {
+@test "Installer prints completion message" {
   run_installer
-
-  # The final echo in the script contains the phrase "Installation complete."
   [[ "$output" == *"Installation complete."* ]]
 }
