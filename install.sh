@@ -79,11 +79,6 @@ if [[ $- == *i* ]]; then
     source "$TARGET_DIR/bash-preexec.sh"
   fi
 
-  # Optional config (do not fail if missing)
-  if [ -f "$TARGET_DIR/hhgttg.config.sh" ]; then
-    source "$TARGET_DIR/hhgttg.config.sh" 2>/dev/null || true
-  fi
-
   # Load the main hhgttg module
   if [ -f "$TARGET_DIR/hhgttg.sh" ]; then
     source "$TARGET_DIR/hhgttg.sh"
