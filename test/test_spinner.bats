@@ -38,10 +38,10 @@ setup() {
 }
 
 @test "preexec launches spinner for non-skipped command" {
-  run preexec "sleep 1"
+  HHG_TEST_MODE=1 run preexec "sleep 1"
 
-  # SPINNER_PID should be set
-  [ -n "${SPINNER_PID:-}" ]
+  # Output should contain the spinner PID
+  [[ -n "${output// }" ]]
 }
 
 @test "precmd kills spinner and prints quote" {
