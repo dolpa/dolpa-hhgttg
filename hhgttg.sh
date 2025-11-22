@@ -16,7 +16,7 @@ MODULE_DIR="$(dirname "${BASH_SOURCE[0]}")"
 
 CONFIG_FILE="${MODULE_DIR}/hhgttg.config.sh"
 export MODULE_LOADED=false
-if [ -f ${CONFIG_FILE} ]; then
+if [ -f "${CONFIG_FILE}" ]; then
 #    echo -n "Loading the configuration ... "
     source "${CONFIG_FILE}"
 #    if [ $MODULE_LOADED ]; then
@@ -233,9 +233,15 @@ spinner() {
         sleep "$speed"
     done
     # When the loop exits the command is finished
-    printf "\r\e[32m✔️  Done!%*s\e[0m\n" "$(tput cols)" ""
+    local cols
+    if [[ -t 1 ]]; then
+        cols="$(tput cols 2>/dev/null || echo 0)"
+    else
+        cols=0
+    fi
+    printf "\r\e[32m✔️ Done!%*s\e[0m\n" "$cols" ""
 }
-# ------------------------------------------------------------------
+# -------------------------------------------------------------------
 # 5️⃣  Hook: preexec → start spinner --------------------------------
 preexec() {
     # $BASH_COMMAND contains the command line that is about to be executed.
