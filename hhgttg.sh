@@ -244,12 +244,10 @@ preexec() {
     # List of commands to skip spinner
     local cmd="$1"
     local SKIP_COMMANDS=(
-    ls cd pwd echo cat tail head more less man apropos whatis
-    vim nano emacs top htop watch ssh bash zsh sh screen tmux
-    apt apt-get yum dnf zypper pacman snap pip pip3 npm brew
-    ping traceroute curl wget scp rsync ftp sftp
-    df du free uptime who whoami id env hostname
-    date cal uname
+        apropos apt apt-get bash brew cal cat cd curl date df dnf du echo emacs \
+        env ftp free head hostname htop id less ls man more nano npm pacman ping \
+        pip pip3 pwd rsync scp screen sftp sh snap ssh tail tmux top traceroute \
+        uname uptime vim watch wc wget whatis who whoami yum zsh zypper
 )
     local skip_spin=0
 
