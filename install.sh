@@ -68,16 +68,31 @@ add_bashrc_block() {
     return 0
   fi
 
+  # Append an interactive-only sourcing block that loads bash-preexec first,
+  # then optional config, and finally the main module. This avoids sourcing
+  # the module in non-interactive shells (e.g., scripts/cron).
   cat >> "$bashrc" <<EOF
 $marker_start
-if [ -f "$source_path" ]; then
-  # Load hhgttg shell module
-  source "$source_path"
+if [[ $- == *i* ]]; then
+  # Load bash-preexec if present so hooks work
+  if [ -f "$TARGET_DIR/bash-preexec.sh" ]; then
+    source "$TARGET_DIR/bash-preexec.sh"
+  fi
+
+  # Optional config (do not fail if missing)
+  if [ -f "$TARGET_DIR/hhgttg.config.sh" ]; then
+    source "$TARGET_DIR/hhgttg.config.sh" 2>/dev/null || true
+  fi
+
+  # Load the main hhgttg module
+  if [ -f "$TARGET_DIR/hhgttg.sh" ]; then
+    source "$TARGET_DIR/hhgttg.sh"
+  fi
 fi
 $marker_end
 EOF
 
-  echo "Appended hhgttg source block to $bashrc"
+  echo "Appended interactive hhgttg source block to $bashrc"
 }
 
 main() {
