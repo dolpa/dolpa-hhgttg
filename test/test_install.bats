@@ -1,5 +1,4 @@
 #!/usr/bin/env bats
-
 # ----------------------------------------------------------------------
 #  Helpers
 # ----------------------------------------------------------------------
@@ -36,16 +35,20 @@ teardown() {
   rm -rf "$TEST_ROOT"
 }
 
-# Run the installer with the isolated environment.
+# -------------------------------------------------------------------------
+# Run the installer (or the remover) with the isolated environment.
+# The helper now forwards any arguments you give it, e.g.
+#   run_installer           # → normal install
+#   run_installer --remove  # → uninstall
+# -------------------------------------------------------------------------
 run_installer() {
-  run bash "${TEST_ROOT}/repo/install.sh"
+  # "$@" lets the test pass any extra arguments (e.g. --remove or -r)
+  run bash "${TEST_ROOT}/repo/install.sh" "$@"
 }
 
-
 # ----------------------------------------------------------------------
-#  Tests
+#  Tests – **Installation**
 # ----------------------------------------------------------------------
-
 
 @test "Installer creates TARGET_DIR" {
   run_installer
@@ -56,7 +59,6 @@ run_installer() {
 @test "Installer installs bash-preexec.sh, hhgttg.sh, hhgttg.config.sh" {
   run_installer
   [[ "$status" -eq 0 ]]
-
   [[ -f "${TARGET_DIR}/bash-preexec.sh" ]]
   [[ -f "${TARGET_DIR}/hhgttg.sh" ]]
   [[ -f "${TARGET_DIR}/hhgttg.config.sh" ]]
@@ -81,7 +83,6 @@ run_installer() {
 
   bashrc="${HOME}/.bashrc"
   [[ -f "$bashrc" ]]                     # .bashrc must exist
-
   grep -q "# hhgttg: start" "$bashrc"
   grep -q "# hhgttg: end"   "$bashrc"
 }
@@ -89,7 +90,6 @@ run_installer() {
 @test "Installer is idempotent – running twice does NOT duplicate .bashrc block" {
   run_installer
   run_installer
-
   bashrc="${HOME}/.bashrc"
 
   # There must be exactly one start‑marker (and consequently one end‑marker).
@@ -100,4 +100,70 @@ run_installer() {
 @test "Installer prints completion message" {
   run_installer
   [[ "$output" == *"Installation complete."* ]]
+}
+
+# -------------------------------------------------------------------------
+#  Tests – **Un‑installation** (new)
+# -------------------------------------------------------------------------
+
+# Helper that checks whether the hhgttg block is present in .bashrc
+has_bashrc_block() {
+  grep -qF "$BASHRC_START_MARK" "${HOME}/.bashrc"
+}
+
+@test "Uninstall (‑r/--remove) removes installed files, .bashrc block and target dir" {
+  # 1️⃣  First install so we have something to remove
+  run_installer
+  [[ "$status" -eq 0 ]]
+
+  # 2️⃣  Now invoke the remover
+  run bash "${TEST_ROOT}/repo/install.sh" --remove
+  [[ "$status" -eq 0 ]]
+
+  # 3️⃣  All module files must be gone
+  [[ ! -e "${TARGET_DIR}/bash-preexec.sh" ]]
+  [[ ! -e "${TARGET_DIR}/hhgttg.sh" ]]
+  [[ ! -e "${TARGET_DIR}/hhgttg.config.sh" ]]
+
+  # 4️⃣  The interactive block must have been stripped from .bashrc
+  ! grep -qF "$BASHRC_START_MARK" "${HOME}/.bashrc"
+  ! grep -qF "$BASHRC_END_MARK"   "${HOME}/.bashrc"
+
+  # 5️⃣  If the directory became empty it should be removed
+  [[ ! -d "$TARGET_DIR" ]]
+}
+
+@test "Uninstall is idempotent – calling --remove twice is safe" {
+  # Install first so the block/file removal can be verified
+  run_installer
+  [[ "$status" -eq 0 ]]
+
+  # First removal
+  run bash "${TEST_ROOT}/repo/install.sh" --remove
+  [[ "$status" -eq 0 ]]
+
+  # Second removal – should still exit cleanly and not crash
+  run bash "${TEST_ROOT}/repo/install.sh" --remove
+  [[ "$status" -eq 0 ]]
+
+  # After both calls nothing should be left
+  [[ ! -e "${TARGET_DIR}/bash-preexec.sh" ]]
+  [[ ! -e "${TARGET_DIR}/hhgttg.sh" ]]
+  [[ ! -e "${TARGET_DIR}/hhgttg.config.sh" ]]
+  [[ ! -f "${HOME}/.bashrc" ]] || ! grep -qF "$BASHRC_START_MARK" "${HOME}/.bashrc"
+  [[ ! -d "$TARGET_DIR" ]]
+}
+
+@test "Uninstall without prior install is safe (no‑op)" {
+  # Directly call the remover – nothing has been installed yet.
+  run bash "${TEST_ROOT}/repo/install.sh" --remove
+  [[ "$status" -eq 0 ]]
+
+  # No files should exist
+  [[ ! -e "${TARGET_DIR}/bash-preexec.sh" ]]
+  [[ ! -e "${TARGET_DIR}/hhgttg.sh" ]]
+  [[ ! -e "${TARGET_DIR}/hhgttg.config.sh" ]]
+
+  # No block in .bashrc
+  [[ ! -f "${HOME}/.bashrc" ]] || ! grep -qF "$BASHRC_START_MARK" "${HOME}/.bashrc"
 }
