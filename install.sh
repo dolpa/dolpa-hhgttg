@@ -1,151 +1,173 @@
 #!/usr/bin/env bash
 # ----------------------------------------------------------------------
-#  hhgttg – simple installer
-#
-#  What it does
-#  -------------
-#   * Installs the module files into $TARGET_DIR
-#       (default: $HOME/.local/shell.d/hhgttg)
-#   * Downloads the official bash‑preexec script if it is not present
-#   * Idempotently adds a small interactive‑only source block to ~/.bashrc
-#
-#  The script is deliberately defensive – it works when run from a
-#  checkout, when run from a downloaded tarball, and when run in a CI
-#  container where the user’s $HOME is a temporary directory.
+# hhgttg installer / remover
 # ----------------------------------------------------------------------
 
 set -euo pipefail
 
 # ----------------------------------------------------------------------
-#  Configurable constants
+# Configuration
 # ----------------------------------------------------------------------
-TARGET_DIR="${TARGET_DIR:-$HOME/.local/shell.d/hhgttg}"
-PREEXEC_URL="https://raw.githubusercontent.com/rcaloras/bash-preexec/master/bash-preexec.sh"
-REPO_RAW_BASE="https://raw.githubusercontent.com/dolpa/dolpa-hhgttg/main"
+MODULE_FILES=(
+  "bash-preexec.sh"
+  "hhgttg.sh"
+  "hhgttg.config.sh"
+)
 
-# Absolute path of the directory that contains this installer script.
-# (When the installer is copied into a temporary test dir the value will
-#  change accordingly, which is exactly what the test suite expects.)
+BASHRC_START_MARK="# hhgttg: start"
+BASHRC_END_MARK="# hhgttg: end"
+
+TARGET_DIR="${TARGET_DIR:-$HOME/.local/shell.d/hhgttg}"
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 
-# ----------------------------------------------------------------------
-#  Helper functions
-# ----------------------------------------------------------------------
-download() {
-  # $1 – URL, $2 – destination file
-  local url="$1" dest="$2"
-
-  if command -v curl >/dev/null 2>&1; then
-    curl -fsSL --retry 3 "$url" -o "$dest"
-  elif command -v wget >/dev/null 2>&1; then
-    wget -qO "$dest" "$url"
-  else
-    echo "Error: Neither curl nor wget is installed." >&2
-    return 2
-  fi
+die() {
+  printf '%s\n' "$1" >&2
+  exit "${2:-1}"
 }
 
-ensure_dir() {
-  # Create $TARGET_DIR if it does not already exist.
+# ----------------------------------------------------------------------
+# Install helpers
+# ----------------------------------------------------------------------
+
+ensure_target_dir() {
   if [[ ! -d "$TARGET_DIR" ]]; then
     mkdir -p "$TARGET_DIR"
-    echo "Created $TARGET_DIR"
+    echo "Created target directory: $TARGET_DIR"
   fi
 }
 
-install_file() {
-  # $1 – filename (relative to the repo root)
-  local name="$1"
-  local dest="$TARGET_DIR/$name"
+install_module_files() {
+  for file in "${MODULE_FILES[@]}"; do
+    local src="${SCRIPT_DIR}/${file}"
+    local dst="${TARGET_DIR}/${file}"
 
-  # 1️⃣  Prefer a local copy (the case when we are running from a checkout)
-  if [[ -f "$SCRIPT_DIR/$name" ]]; then
-    cp "$SCRIPT_DIR/$name" "$dest"
-    echo "Copied local $name → $dest"
-  else
-    # 2️⃣  No local copy → fetch from the internet
-    local url
-    if [[ "$name" == "bash-preexec.sh" ]]; then
-      url="$PREEXEC_URL"
+    if [[ -f "$src" ]]; then
+      cp -f "$src" "$dst"
     else
-      url="$REPO_RAW_BASE/$name"
+      if [[ "$file" == "bash-preexec.sh" ]]; then
+        echo "Downloading $file ..."
+        if command -v curl >/dev/null 2>&1; then
+          curl -fsSL "https://raw.githubusercontent.com/rcaloras/bash-preexec/master/bash-preexec.sh" -o "$dst"
+        elif command -v wget >/dev/null 2>&1; then
+          wget -qO "$dst" "https://raw.githubusercontent.com/rcaloras/bash-preexec/master/bash-preexec.sh"
+        else
+          die "Cannot download $file – neither curl nor wget found."
+        fi
+      else
+        die "File not found: ${src}"
+      fi
     fi
-    echo "Downloading $name from $url"
-    if download "$url" "$dest"; then
-      echo "Downloaded $name → $dest"
-    else
-      echo "Failed to obtain $name" >&2
-      return 1
-    fi
-  fi
-
-  # Permissions: readable by the user, not executable.
-  chmod 644 "$dest" || true
+    chmod 0644 "$dst"
+    echo "Installed $file → $dst"
+  done
 }
 
 add_bashrc_block() {
-  # Append a source block to ~/.bashrc *once*.
-  local bashrc="${HOME}/.bashrc"
-  local marker_start="# hhgttg: start"
-  local marker_end="# hhgttg: end"
-  local source_path="${TARGET_DIR}/hhgttg.sh"
+  local bashrc="$HOME/.bashrc"
 
-  # If the markers already exist we are done – this makes the installer idempotent.
-  if [[ -f "$bashrc" && $(grep -F "$marker_start" "$bashrc" || true) ]]; then
-    echo "A hhgttg source block already exists in $bashrc. Skipping."
-    return 0
+  [[ -f "$bashrc" ]] || touch "$bashrc"
+
+  if grep -qF "$BASHRC_START_MARK" "$bashrc"; then
+    echo "Block already exists – skipping"
+    return
   fi
 
-  # Ensure the file exists (touch creates an empty file if needed).
-  : >> "$bashrc"
+  cat >>"$bashrc" <<EOF
 
-  # Write the block.  The block runs only in interactive shells (‑i).
-  cat >> "$bashrc" <<EOF
-
-$marker_start
-if [[ \$- == *i* ]]; then
-  # Load bash‑preexec first – required for the pre‑exec / pre‑prompt hooks.
-  if [[ -f "${TARGET_DIR}/bash-preexec.sh" ]]; then
-    source "${TARGET_DIR}/bash-preexec.sh"
-  fi
-
-  # Load the main hhgttg module.
-  if [[ -f "${source_path}" ]]; then
-    source "${source_path}"
-  fi
+$BASHRC_START_MARK
+if [[ -n "\$PS1" ]]; then
+  export PATH="\$PATH:${TARGET_DIR}"
+  [[ -f "${TARGET_DIR}/hhgttg.sh" ]] && source "${TARGET_DIR}/hhgttg.sh"
 fi
-$marker_end
+$BASHRC_END_MARK
 EOF
 
-  echo "Appended interactive hhgttg source block to $bashrc"
+  echo "Added interactive block to $bashrc"
 }
 
 # ----------------------------------------------------------------------
-#  Main installation routine
+# Uninstall helpers
 # ----------------------------------------------------------------------
-main() {
-  echo "Installing hhgttg module to: $TARGET_DIR"
-  ensure_dir
 
-  # Files we want to have in $TARGET_DIR
-  local files=(bash-preexec.sh hhgttg.sh hhgttg.config.sh)
+remove_bashrc_block() {
+  local bashrc="$HOME/.bashrc"
+  [[ -f "$bashrc" ]] || return 0
 
-  for f in "${files[@]}"; do
-    if ! install_file "$f"; then
-      echo "Error installing $f" >&2
-      exit 1
+  if sed --version >/dev/null 2>&1; then
+    # GNU sed
+    sed -i "/$BASHRC_START_MARK/,/$BASHRC_END_MARK/d" "$bashrc"
+  else
+    # BSD/macOS sed
+    sed -i '' "/$BASHRC_START_MARK/,/$BASHRC_END_MARK/d" "$bashrc"
+  fi
+
+  echo "Removed block from $bashrc (if present)"
+}
+
+uninstall_module() {
+  echo "=== hhgttg – Uninstall ==="
+
+  for file in "${MODULE_FILES[@]}"; do
+    local f="${TARGET_DIR}/${file}"
+    if [[ -e "$f" ]]; then
+      rm -f "$f"
+      echo "Removed $f"
     fi
   done
 
+  remove_bashrc_block
+
+  if [[ -d "$TARGET_DIR" && -z "$(ls -A "$TARGET_DIR")" ]]; then
+    rmdir "$TARGET_DIR"
+    echo "Removed empty directory $TARGET_DIR"
+  else
+    echo "Directory not empty – leaving $TARGET_DIR"
+  fi
+
+  echo "=== uninstall complete ==="
+  exit 0
+}
+
+# ----------------------------------------------------------------------
+# Argument parser
+# ----------------------------------------------------------------------
+
+arg="${1:-}"
+
+case "$arg" in
+  -h|--help)
+    cat <<EOF
+Usage: $(basename "$0") [--remove|-r]
+  (no args)   Install
+  -r,--remove Uninstall
+EOF
+    exit 0
+    ;;
+  -r|--remove)
+    uninstall_module
+    ;;
+  "" )
+    # continue to install
+    ;;
+  *)
+    die "Unknown option: $arg"
+    ;;
+esac
+
+# ----------------------------------------------------------------------
+# Main
+# ----------------------------------------------------------------------
+
+main() {
+  ensure_target_dir
+  install_module_files
   add_bashrc_block
 
   echo
   echo "Installation complete."
-  echo "To apply the changes now, run:"
-  echo "  source ~/.bashrc"
-  echo "Or open a new shell session."
+  echo "  • Files installed in: $TARGET_DIR"
+  echo "  • Block added to: ${HOME}/.bashrc"
 }
-
 # ----------------------------------------------------------------------
 #  Run the installer when the script is executed directly.
 # ----------------------------------------------------------------------
