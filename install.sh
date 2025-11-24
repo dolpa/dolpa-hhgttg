@@ -182,11 +182,18 @@ check_requirements() {
     echo "⚠️  $warnings optional requirement(s) missing. Installation can proceed but some features may be limited."
     echo "   Consider installing the missing components for full functionality."
     echo
-    read -p "Continue with installation? [y/N] " -n 1 -r
-    echo
-    if [[ ! $REPLY =~ ^[Yy]$ ]]; then
-      echo "Installation cancelled."
-      return 1
+    # When running automated tests / debug mode, allow skipping the interactive
+    # confirmation by setting HHG_TEST_MODE in the environment. This mirrors the
+    # module's test/debug flag and keeps the installer non-interactive in CI.
+    if [[ -n "${HHG_TEST_MODE:-}" ]]; then
+      echo "HHG_TEST_MODE detected — auto-accepting and continuing installation."
+    else
+      read -p "Continue with installation? [y/N] " -n 1 -r
+      echo
+      if [[ ! $REPLY =~ ^[Yy]$ ]]; then
+        echo "Installation cancelled."
+        return 1
+      fi
     fi
   else
     echo "✅ All requirements satisfied! Proceeding with installation..."
