@@ -358,8 +358,15 @@ preexec() {
     # $BASH_COMMAND contains the command line that is about to be executed.
     # $$ is the PID of the current shell – the spinner will watch **that**
     # PID because the command runs as a *child* of the shell.
-    # List of commands to skip spinner
+    
+    # 🕐  Record command start time if timer is enabled
     local cmd="$1"
+    if [[ "${HHGTTG_TIMERS_SET:-}" == "true" ]]; then
+        COMMAND_START_TIME="$(date +%s.%N)"
+        COMMAND_TEXT="$cmd"
+    fi
+    
+    # List of commands to skip spinner
     local SKIP_COMMANDS=(
         apropos apt apt-get bash brew cal cat cd curl date df dnf du echo emacs \
         env ftp free head hostname htop id less ls man more nano npm pacman ping \
