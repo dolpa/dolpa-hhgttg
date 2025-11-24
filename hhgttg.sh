@@ -30,6 +30,11 @@ unset MODULE_LOADED
 set +m
 
 # -------------------------------------------------------------------
+# 🕐  Timer variables -----------------------------------------------
+COMMAND_START_TIME=""
+COMMAND_TEXT=""
+
+# -------------------------------------------------------------------
 # 1️⃣  Helper: random quote -----------------------------------------
 _hhg_quote() {
     # ---------------------------------------------------------------
@@ -104,6 +109,121 @@ _hhg_quote() {
     )
     # Randomly pick one and echo it
     printf "%s\n" "${quotes[RANDOM % ${#quotes[@]}]}"
+}
+
+# ------------------------------------------------------------------
+# 🧮 Helper: calculate duration without bc -------------------------
+_hhg_calc_duration() {
+    local start_time="$1"
+    local end_time="$2"
+    
+    # If bc is available and functional, use it for precise calculation.
+    # Some environments may provide a non-working `bc` shim (e.g. exported
+    # function that returns non-zero). Verify that `bc` can be executed
+    # successfully before relying on it.
+    if command -v bc >/dev/null 2>&1; then
+        if echo "scale=9; 1+1" | bc >/dev/null 2>&1; then
+            # Use bc with fixed scale to preserve nanosecond-style precision
+            # (ensure 9 fractional digits are present)
+            echo "scale=9; $end_time - $start_time" | bc 2>/dev/null || echo "0.000000000"
+            return
+        fi
+    fi
+    
+    # Fallback: bash arithmetic (less precise but works)
+    # Convert to integer nanoseconds to avoid floating point
+    local start_ns="${start_time//./}"
+    local end_ns="${end_time//./}"
+    
+    # Remove leading zeros to prevent octal interpretation
+    start_ns="${start_ns#"${start_ns%%[!0]*}"}"
+    end_ns="${end_ns#"${end_ns%%[!0]*}"}"
+    
+    # Handle empty strings (all zeros)
+    [[ -z "$start_ns" ]] && start_ns="0"
+    [[ -z "$end_ns" ]] && end_ns="0"
+    
+    # Pad to same length (nanoseconds precision)
+    while [[ ${#start_ns} -lt 19 ]]; do start_ns="${start_ns}0"; done
+    while [[ ${#end_ns} -lt 19 ]]; do end_ns="${end_ns}0"; done
+    
+    # Calculate difference in nanoseconds, then convert back
+    local diff_ns=$((end_ns - start_ns))
+    local seconds=$((diff_ns / 1000000000))
+    local remainder=$((diff_ns % 1000000000))
+    
+    # Format as decimal
+    printf "%d.%09d" "$seconds" "$remainder"
+}
+
+# ------------------------------------------------------------------
+# 🔢 Helper: compare floating point numbers without bc -------------
+_hhg_float_gt() {
+    local num1="$1"
+    local num2="$2"
+    
+    # If bc is available, use it
+    if command -v bc >/dev/null 2>/dev/null; then
+        # Verify bc is functional (some environments may mock or stub bc)
+        if echo "1+1" | bc >/dev/null 2>&1; then
+            [[ "$(echo "$num1 > $num2" | bc 2>/dev/null || echo "0")" == "1" ]]
+            return
+        fi
+    fi
+    
+    # Fallback: convert to integer comparison
+    # Remove decimal point
+    local int1="${num1//./}"
+    local int2="${num2//./}"
+    
+    # Remove leading zeros to prevent octal interpretation
+    int1="${int1#"${int1%%[!0]*}"}"
+    int2="${int2#"${int2%%[!0]*}"}"
+    
+    # Handle empty strings (all zeros)
+    [[ -z "$int1" ]] && int1="0"
+    [[ -z "$int2" ]] && int2="0"
+    
+    # Pad to same length for comparison
+    local max_len=$((${#int1} > ${#int2} ? ${#int1} : ${#int2}))
+    while [[ ${#int1} -lt $max_len ]]; do int1="${int1}0"; done
+    while [[ ${#int2} -lt $max_len ]]; do int2="${int2}0"; done
+    
+    [[ $int1 -gt $int2 ]]
+}
+
+# ------------------------------------------------------------------
+# ⏱️  Helper: format execution time --------------------------------
+_hhg_format_time() {
+    local total_seconds="$1"
+    local hours minutes seconds milliseconds
+    
+    # Split into integer seconds and fractional part
+    local int_seconds="${total_seconds%.*}"
+    local frac_part="${total_seconds#*.}"
+    
+    # Handle case where there's no decimal point
+    if [[ "$int_seconds" == "$total_seconds" ]]; then
+        frac_part="000"
+    fi
+    
+    # Pad fractional part to 3 digits
+    frac_part="${frac_part}000"
+    milliseconds="${frac_part:0:3}"
+    
+    hours=$((int_seconds / 3600))
+    minutes=$(((int_seconds % 3600) / 60))
+    seconds=$((int_seconds % 60))
+    
+    if [[ $hours -gt 0 ]]; then
+        printf "%dh %dm %d.%03ds" "$hours" "$minutes" "$seconds" "$milliseconds"
+    elif [[ $minutes -gt 0 ]]; then
+        printf "%dm %d.%03ds" "$minutes" "$seconds" "$milliseconds"
+    elif [[ $int_seconds -gt 0 ]]; then
+        printf "%d.%03ds" "$seconds" "$milliseconds"
+    else
+        printf "0.%03ds" "$milliseconds"
+    fi
 }
 
 # ------------------------------------------------------------------
@@ -241,14 +361,22 @@ spinner() {
     fi
     printf "\r\e[32m✔️ Done!%*s\e[0m\n" "$cols" ""
 }
+
 # -------------------------------------------------------------------
 # 5️⃣  Hook: preexec → start spinner --------------------------------
 preexec() {
     # $BASH_COMMAND contains the command line that is about to be executed.
     # $$ is the PID of the current shell – the spinner will watch **that**
     # PID because the command runs as a *child* of the shell.
-    # List of commands to skip spinner
+    
+    # 🕐  Record command start time if timer is enabled
     local cmd="$1"
+    if [[ "${HHGTTG_TIMERS_SET:-}" == "true" ]]; then
+        COMMAND_START_TIME="$(date +%s.%N)"
+        COMMAND_TEXT="$cmd"
+    fi
+    
+    # List of commands to skip spinner
     local SKIP_COMMANDS=(
         apropos apt apt-get bash brew cal cat cd curl date df dnf du echo emacs \
         env ftp free head hostname htop id less ls man more nano npm pacman ping \
@@ -275,13 +403,42 @@ preexec() {
         echo "$SPINNER_PID"
     fi
 }
+
 # -------------------------------------------------------------------
-# 6️⃣  Hook: precmd → stop spinner, show quote/towel ----------------
+# 6️⃣  Hook: precmd → stop spinner, show timer, quote/towel ----------
 precmd() {
     # 1️⃣  Stop the background spinner (if any)
     if [[ -n "$SPINNER_PID" ]]; then
         kill "$SPINNER_PID" 2>/dev/null || true
         unset SPINNER_PID
+    fi
+
+    # 🕐  Calculate and display execution time if timer is enabled
+    if [[ "${HHGTTG_TIMERS_SET:-}" == "true" && -n "$COMMAND_START_TIME" ]]; then
+        local end_time="$(date +%s.%N)"
+        local duration="$(_hhg_calc_duration "$COMMAND_START_TIME" "$end_time")"
+        
+        # Only show timer for commands that took some measurable time (more than 1ms)
+        if _hhg_float_gt "$duration" "0.001"; then
+            local formatted_time="$(_hhg_format_time "$duration")"
+            echo -e "\e[35m⏱️  Execution time: $formatted_time\e[0m"
+            
+            # Show command if it's long or took significant time.
+            # The duration threshold is configurable via HHGTTG_EXEC_DURATION_ALERT
+            # (default: 1.0 seconds).
+            local alert_threshold="${HHGTTG_EXEC_DURATION_ALERT:-1.0}"
+            if [[ ${#COMMAND_TEXT} -gt 50 ]] || _hhg_float_gt "$duration" "$alert_threshold"; then
+                local display_cmd="$COMMAND_TEXT"
+                if [[ ${#display_cmd} -gt 80 ]]; then
+                    display_cmd="${display_cmd:0:77}..."
+                fi
+                echo -e "\e[90m   Command: $display_cmd\e[0m"
+            fi
+        fi
+        
+        # Reset timer variables
+        COMMAND_START_TIME=""
+        COMMAND_TEXT=""
     fi
 
     # 2️⃣  Print a colourful quote on a new line
@@ -294,5 +451,5 @@ precmd() {
 }
 # -------------------------------------------------------------------
 # 7️⃣  Export the hook functions for bash‑preexec to see ------------
-export -f preexec precmd spinner
+export -f preexec precmd spinner _hhg_format_time _hhg_calc_duration _hhg_float_gt
 # -------------------------------------------------------------------

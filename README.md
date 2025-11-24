@@ -12,6 +12,10 @@ preexec/precmd hooks in interactive shells.
 - Optionally downloads `bash-preexec.sh` (if missing) and places it alongside the module.
 - Adds an idempotent sourcing block to `~/.bashrc` so the module and `bash-preexec.sh` are
 	loaded for interactive shells.
+- **⏱️ Timer Feature:** Displays execution time for commands that take measurable time (>1ms)
+- **🎯 Smart Display:** Shows command details for long-running (>1s) or complex commands (>50 chars)
+- **🎨 Spinner Animation:** Shows animated spinners during command execution
+- **📜 Random Quotes:** Displays sci-fi quotes after command completion
 
 **Included files:**
 - `hhgttg.sh` — main module script (helpers, prompt spinner, etc.)
@@ -23,6 +27,10 @@ preexec/precmd hooks in interactive shells.
 - Bash (interactive shell) — tested on Bash 4.x and later
 - `curl` or `wget` available to download `bash-preexec.sh` when not present locally
 - Write access to your home directory to add `~/.local/shell.d/hhgttg` and modify `~/.bashrc`
+- **For Timer Feature:**
+  - `date` command with nanosecond support (`date +%s.%N`) — available on most modern systems
+  - `bc` command (optional) — for high-precision floating-point calculations
+  - `bash-preexec` — for command execution hooks (automatically installed)
 
 **Usage:**
 - To use the module without the installer, source it from your `~/.bashrc` or current session:
@@ -38,6 +46,48 @@ preexec/precmd hooks in interactive shells.
 	source ./hhgttg.config.sh
 	source ./hhgttg.sh
 	```
+
+## ⏱️ Timer Feature Configuration
+
+The module includes a powerful timer feature that tracks and displays execution time for your commands.
+
+**Timer Configuration (in `hhgttg.config.sh`):**
+
+```bash
+# Enable/disable the timer feature
+HHGTTG_TIMERS_SET=true   # Set to "false" to disable timers
+
+# Spinner configuration (works alongside timers)
+HHGTTG_SPINNER_SET=moon  # Choose spinner animation
+HHGTTG_SPINNER_SPEED=0.1 # Animation speed in seconds
+```
+
+**Timer Behavior:**
+- ⚡ **Smart Threshold:** Only shows timing for commands taking more than 1 millisecond
+- 📊 **Detailed Display:** Shows command details for:
+  - Commands with names longer than 50 characters
+  - Commands taking more than 1 second to execute
+- ✂️ **Smart Truncation:** Long command names (>80 chars) are truncated with "..."
+- 🎨 **Color Coded:** Timer output uses purple/magenta color scheme
+- 🔧 **Fallback Compatible:** Works with or without the `bc` command for calculations
+
+**Example Timer Output:**
+
+```bash
+$ sleep 2.5
+[🌑] Working...
+✔️ Done!
+⏱️  Execution time: 2.500s
+   Command: sleep 2.5
+
+May the Force be with you.
+```
+
+**Available Spinner Sets:**
+- `moon` - Moon phases (🌑 🌒 🌓 🌔 🌕 🌖 🌗 🌘)
+- `dots` - Rotating dots (⠋ ⠙ ⠹ ⠸ ⠼ ⠴ ⠦ ⠧ ⠇ ⠏)
+- `timer` - Timer symbols (⏳ ⏱️ ⏲️)
+- `random` - Randomly selected spinner set
 
 **Installation (using `install.sh`):**
 
@@ -119,6 +169,16 @@ Quick troubleshooting
 - If you use a different profile file (for example `~/.bash_profile` or `~/.profile`), move the
 	appended block there or adapt the script before running.
 - If the spinner/quotes do not appear, ensure you are running Bash 4+ (macOS default Bash is 3.2).
+
+**Timer Feature Troubleshooting:**
+- **Timers not showing:** Ensure `HHGTTG_TIMERS_SET=true` in `hhgttg.config.sh`
+- **Inaccurate timing:** Install `bc` command for high-precision calculations:
+  - Ubuntu/Debian: `sudo apt install bc`
+  - macOS: `brew install bc` (or use built-in)
+  - CentOS/RHEL: `sudo yum install bc`
+- **No nanosecond precision:** Ensure your `date` command supports `+%s.%N` format
+- **Commands not timed:** Check that `bash-preexec` is properly loaded and functioning
+- **Timer showing for quick commands:** This is normal for the first few commands as the system calibrates
 
 Example installer output (typical):
 
