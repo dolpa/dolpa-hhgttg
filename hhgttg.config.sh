@@ -5,5 +5,7 @@ HHGTTG_TIMERS_SET=true
 HHGTTG_SPINNER_SET=moon
 HHGTTG_SPINNER_SPEED=0.1 # recommended speed is
 
+HHGTTG_EXEC_DURATION_ALERT="5.0"
+
 # Just sign that this config file was loaded
 export MODULE_LOADED=true

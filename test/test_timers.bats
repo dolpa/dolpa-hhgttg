@@ -253,6 +253,8 @@ setup() {
   load_module
   
   export HHGTTG_TIMERS_SET="true"
+  # Ensure test behavior is independent of default config
+  export HHGTTG_EXEC_DURATION_ALERT="1.0"
   COMMAND_START_TIME="1234567890.000"
   COMMAND_TEXT="short cmd"
   
@@ -275,10 +277,45 @@ setup() {
   [[ "$output" =~ "Command: short cmd" ]]
 }
 
+@test "HHGTTG_EXEC_DURATION_ALERT changes execution-time threshold behavior" {
+  load_module
+
+  export HHGTTG_TIMERS_SET="true"
+  # Use a short command that normally would not show details at default (1.0s)
+  COMMAND_START_TIME="1234567890.000"
+  COMMAND_TEXT="short cmd"
+
+  # Mock date to simulate 0.15 seconds elapsed
+  date() {
+    if [[ "$*" == "+%s.%N" ]]; then
+      echo "1234567890.150"
+    fi
+  }
+  export -f date
+
+  # With default threshold (1.0) the command details should NOT be shown
+  tmpfile="$(mktemp)"
+  precmd >"$tmpfile"
+  output="$(cat "$tmpfile")"
+  rm -f "$tmpfile"
+  [[ ! "$output" =~ "Command:" ]]
+
+  # Now lower the alert threshold so 0.15s exceeds it
+  export HHGTTG_EXEC_DURATION_ALERT="0.1"
+  COMMAND_START_TIME="1234567890.000"
+  tmpfile="$(mktemp)"
+  precmd >"$tmpfile"
+  output="$(cat "$tmpfile")"
+  rm -f "$tmpfile"
+  [[ "$output" =~ "Command:" ]]
+}
+
 @test "precmd truncates very long command names" {
   load_module
   
   export HHGTTG_TIMERS_SET="true"
+  # Ensure test behavior is independent of default config
+  export HHGTTG_EXEC_DURATION_ALERT="1.0"
   COMMAND_START_TIME="1234567890.000"
   # Create a command longer than 80 characters
   COMMAND_TEXT="this is an extremely long command that should be truncated when displayed because it exceeds the maximum display length"

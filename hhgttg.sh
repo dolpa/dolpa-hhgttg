@@ -423,8 +423,11 @@ precmd() {
             local formatted_time="$(_hhg_format_time "$duration")"
             echo -e "\e[35m⏱️  Execution time: $formatted_time\e[0m"
             
-            # Show command if it's long or took significant time (more than 1 second)
-            if [[ ${#COMMAND_TEXT} -gt 50 ]] || _hhg_float_gt "$duration" "1.0"; then
+            # Show command if it's long or took significant time.
+            # The duration threshold is configurable via HHGTTG_EXEC_DURATION_ALERT
+            # (default: 1.0 seconds).
+            local alert_threshold="${HHGTTG_EXEC_DURATION_ALERT:-1.0}"
+            if [[ ${#COMMAND_TEXT} -gt 50 ]] || _hhg_float_gt "$duration" "$alert_threshold"; then
                 local display_cmd="$COMMAND_TEXT"
                 if [[ ${#display_cmd} -gt 80 ]]; then
                     display_cmd="${display_cmd:0:77}..."
