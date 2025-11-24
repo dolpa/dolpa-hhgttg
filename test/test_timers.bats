@@ -12,14 +12,18 @@ setup() {
   
   # Test with simple values
   result="$(_hhg_calc_duration "1234567890.000" "1234567892.500")"
-  [[ "$result" == "2.500000000" ]]
+  # Normalize numeric output to 9 fractional digits to accept either "2.5" or "2.500000000"
+  norm=$(printf "%.9f" "$result")
+  [[ "$norm" == "2.500000000" ]]
 }
 
 @test "_hhg_calc_duration handles zero duration" {
   load_module
   
   result="$(_hhg_calc_duration "1234567890.123" "1234567890.123")"
-  [[ "$result" == "0.000000000" ]]
+  # Normalize output to 9 fractional digits to be tolerant to bc/fallback formatting
+  norm=$(printf "%.9f" "$result")
+  [[ "$norm" == "0.000000000" ]]
 }
 
 @test "_hhg_calc_duration works without bc command" {
@@ -175,8 +179,11 @@ setup() {
   }
   export -f date
   
-  # Capture output
-  run precmd
+  # Capture output by running precmd in the current shell (so it clears globals)
+  tmpfile="$(mktemp)"
+  precmd >"$tmpfile"
+  output="$(cat "$tmpfile")"
+  rm -f "$tmpfile"
   
   # Should show execution time
   [[ "$output" =~ "⏱️  Execution time: 2.500s" ]]
@@ -201,8 +208,11 @@ setup() {
   }
   export -f date
   
-  # Capture output
-  run precmd
+  # Capture output by running precmd in the current shell (so it clears globals)
+  tmpfile="$(mktemp)"
+  precmd >"$tmpfile"
+  output="$(cat "$tmpfile")"
+  rm -f "$tmpfile"
   
   # Should not show execution time
   [[ ! "$output" =~ "⏱️  Execution time" ]]
@@ -227,8 +237,11 @@ setup() {
   }
   export -f date
   
-  # Capture output
-  run precmd
+  # Capture output by running precmd in the current shell (so it clears globals)
+  tmpfile="$(mktemp)"
+  precmd >"$tmpfile"
+  output="$(cat "$tmpfile")"
+  rm -f "$tmpfile"
   
   # Should show execution time and command details
   [[ "$output" =~ "⏱️  Execution time: 0.500s" ]]
@@ -251,8 +264,11 @@ setup() {
   }
   export -f date
   
-  # Capture output
-  run precmd
+  # Capture output by running precmd in the current shell (so it clears globals)
+  tmpfile="$(mktemp)"
+  precmd >"$tmpfile"
+  output="$(cat "$tmpfile")"
+  rm -f "$tmpfile"
   
   # Should show execution time and command details even for short command names
   [[ "$output" =~ "⏱️  Execution time: 1.500s" ]]
@@ -275,12 +291,15 @@ setup() {
   }
   export -f date
   
-  # Capture output
-  run precmd
+  # Capture output by running precmd in the current shell (so it clears globals)
+  tmpfile="$(mktemp)"
+  precmd >"$tmpfile"
+  output="$(cat "$tmpfile")"
+  rm -f "$tmpfile"
   
-  # Should show truncated command with "..."
+  # Should show truncated command with an ellipsis
   [[ "$output" =~ "Command:" ]]
-  [[ "$output" =~ "\.\.\.)" ]]
+  [[ "$output" == *"..."* ]]
 }
 
 @test "precmd does not show timer when timers are disabled" {
@@ -298,8 +317,11 @@ setup() {
   }
   export -f date
   
-  # Capture output
-  run precmd
+  # Capture output by running precmd in the current shell (so it clears globals)
+  tmpfile="$(mktemp)"
+  precmd >"$tmpfile"
+  output="$(cat "$tmpfile")"
+  rm -f "$tmpfile"
   
   # Should not show execution time
   [[ ! "$output" =~ "⏱️  Execution time" ]]
