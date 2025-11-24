@@ -117,10 +117,17 @@ _hhg_calc_duration() {
     local start_time="$1"
     local end_time="$2"
     
-    # If bc is available, use it for precise calculation
+    # If bc is available and functional, use it for precise calculation.
+    # Some environments may provide a non-working `bc` shim (e.g. exported
+    # function that returns non-zero). Verify that `bc` can be executed
+    # successfully before relying on it.
     if command -v bc >/dev/null 2>&1; then
-        echo "$end_time - $start_time" | bc 2>/dev/null || echo "0"
-        return
+        if echo "scale=9; 1+1" | bc >/dev/null 2>&1; then
+            # Use bc with fixed scale to preserve nanosecond-style precision
+            # (ensure 9 fractional digits are present)
+            echo "scale=9; $end_time - $start_time" | bc 2>/dev/null || echo "0.000000000"
+            return
+        fi
     fi
     
     # Fallback: bash arithmetic (less precise but works)
@@ -156,9 +163,12 @@ _hhg_float_gt() {
     local num2="$2"
     
     # If bc is available, use it
-    if command -v bc >/dev/null 2>&1; then
-        [[ "$(echo "$num1 > $num2" | bc 2>/dev/null || echo "0")" == "1" ]]
-        return
+    if command -v bc >/dev/null 2>/dev/null; then
+        # Verify bc is functional (some environments may mock or stub bc)
+        if echo "1+1" | bc >/dev/null 2>&1; then
+            [[ "$(echo "$num1 > $num2" | bc 2>/dev/null || echo "0")" == "1" ]]
+            return
+        fi
     fi
     
     # Fallback: convert to integer comparison
