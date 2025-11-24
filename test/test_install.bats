@@ -28,6 +28,8 @@ setup() {
 
   # Where the installer will place the module files.
   export TARGET_DIR="${HOME}/.local/shell.d/hhgttg"
+  # Run installer in test mode (non-interactive)
+  export HHG_TEST_MODE=1
 }
 
 teardown() {
@@ -99,7 +101,7 @@ run_installer() {
 
 @test "Installer prints completion message" {
   run_installer
-  [[ "$output" == *"Installation complete."* ]]
+  [[ "$output" == *"Installation complete"* ]]
 }
 
 # -------------------------------------------------------------------------
