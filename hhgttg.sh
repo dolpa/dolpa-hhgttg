@@ -235,6 +235,115 @@ _hhg_towel() {
     sed -e 's/^/🔹 /' "$HOME/.hhgttg/towel.txt"
 }
 
+# ------------------------------------------------------------------
+# 🎨 Prompt Theme Loader -------------------------------------------
+# Loads and applies the selected prompt theme based on HHGTTG_PROMPT_THEME
+# Available themes: dontpanic, marvin, improbability, minimal, off
+# ------------------------------------------------------------------
+hhgttg_load_prompt() {
+
+    # Allow disabling:
+    if [[ "${HHGTTG_PROMPT_THEME:-dontpanic}" == "off" ]]; then
+        return 0
+    fi
+
+    case "$HHGTTG_PROMPT_THEME" in
+        dontpanic)
+            hhgttg_prompt_dontpanic
+            ;;
+        marvin)
+            hhgttg_prompt_marvin
+            ;;
+        improbability)
+            hhgttg_prompt_improbability
+            ;;
+        minimal)
+            hhgttg_prompt_minimal
+            ;;
+        *)
+            hhgttg_prompt_dontpanic
+            ;;
+    esac
+}
+
+# ------------------------------------------------------------------
+# 🚀 "Don't Panic" Prompt Theme -----------------------------------
+# Classic HHGTTG theme with the iconic "DON'T PANIC" message
+# Features:
+#   - Blue current directory path
+#   - Green "(DON'T PANIC)" reminder
+#   - Two-line layout for better readability
+# ------------------------------------------------------------------
+hhgttg_prompt_dontpanic() {
+    local green="\[\033[0;32m\]"
+    local blue="\[\033[0;34m\]"
+    local reset="\[\033[0m\]"
+
+    PS1="${blue}\w${reset} ${green}(DON'T PANIC)${reset}\n\$ "
+}
+
+# ------------------------------------------------------------------
+# 🤖 Marvin the Paranoid Android Prompt Theme ---------------------
+# Depressed robot theme inspired by Marvin from HHGTTG
+# Features:
+#   - Gray color scheme reflecting Marvin's melancholy
+#   - Sighing indicator (*sigh*) before the path
+#   - Pessimistic "What now?" prompt instead of standard $
+#   - Two-line layout matching Marvin's dramatic personality
+# ------------------------------------------------------------------
+hhgttg_prompt_marvin() {
+    local gray="\[\033[1;30m\]"
+    local reset="\[\033[0m\]"
+
+    PS1="${gray}*sigh* ${reset}\w\n${gray}What now? > ${reset}"
+}
+
+# ------------------------------------------------------------------
+# 🎲 Infinite Improbability Drive Message Generator ----------------
+# Generates random absurd messages inspired by the Infinite 
+# Improbability Drive from HHGTTG. Called by improbability prompt.
+# Returns a random message about improbable events and reality glitches.
+# ------------------------------------------------------------------
+hhgttg_improbability_message() {
+    local msgs=(
+        "You briefly turned into a penguin."
+        "Probability of this command succeeding: 1/∞."
+        "A bowl of petunias says hello."
+        "Reality is frequently inaccurate."
+        "You feel vaguely turned inside out."
+    )
+    echo "${msgs[RANDOM % ${#msgs[@]}]}"
+}
+
+# ------------------------------------------------------------------
+# 🌀 Infinite Improbability Drive Prompt Theme --------------------
+# Chaotic theme based on the Infinite Improbability Drive
+# Features:
+#   - Yellow color scheme suggesting energy and chaos
+#   - Random improbable messages displayed above each prompt
+#   - Dynamic content that changes with each command
+#   - Two-line layout with absurd message on top
+# ------------------------------------------------------------------
+hhgttg_prompt_improbability() {
+    local yellow="\[\033[0;33m\]"
+    local reset="\[\033[0m\]"
+
+    PS1="${yellow}\$(hhgttg_improbability_message)${reset}\n\w \$ "
+}
+
+# ------------------------------------------------------------------
+# ⚡ Minimal Prompt Theme ------------------------------------------
+# Clean, distraction-free prompt for users who prefer simplicity
+# Features:
+#   - No colors or decorations
+#   - Single line layout: directory + prompt
+#   - Standard shell prompt character ($)
+#   - Maximum efficiency and minimal screen real estate usage
+# ------------------------------------------------------------------
+hhgttg_prompt_minimal() {
+    PS1="\w \$ "
+}
+
 # -------------------------------------------------------------------
 # _hhg_spinners – return a *space‑separated* list of frames.
 #   * Each frame is a single “character” (emoji, Unicode glyph, ASCII)
@@ -449,6 +558,10 @@ precmd() {
         echo -e "\e[90m$(_hhg_towel)\e[0m"
     fi
 }
+
+# Load the selected prompt theme
+hhgttg_load_prompt
+
 # -------------------------------------------------------------------
 # 7️⃣  Export the hook functions for bash‑preexec to see ------------
 export -f preexec precmd spinner _hhg_format_time _hhg_calc_duration _hhg_float_gt
