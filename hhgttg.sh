@@ -449,18 +449,49 @@ _hhg_spinners() {
 # -------------------------------------------------------------------
 # 4️⃣  Core spinner function -----------------------------------------
 spinner() {
-    local pid=$1                # PID of the command we watch
+    local target_pid=$1                # PID to watch
     local speed="${HHGTTG_SPINNER_SPEED:-0.12}"   # seconds per frame, can be overridden
     local frames=($( _hhg_spinners ))            # turn the string into an array
     local i=0
     local colour="\e[33m"        # yellow (you can change or make it configurable)
+    local max_iterations=3000        # Safety limit: ~5 minutes at 0.1s intervals
+    local iterations=0
 
     printf "%b" "$colour"
-    while kill -0 "$pid" 2>/dev/null; do
+    
+    # Enhanced PID checking for pipelines and subprocesses
+    while [[ $iterations -lt $max_iterations ]]; do
+        # Check if the target PID or any child processes are still running
+        local still_running=false
+        
+        # Check the original PID
+        if kill -0 "$target_pid" 2>/dev/null; then
+            still_running=true
+        else
+            # For pipelines, check if any child processes are still running
+            # This handles cases where the shell has spawned multiple processes
+            local child_pids
+            child_pids=$(pgrep -P "$target_pid" 2>/dev/null || true)
+            if [[ -n "$child_pids" ]]; then
+                for child_pid in $child_pids; do
+                    if kill -0 "$child_pid" 2>/dev/null; then
+                        still_running=true
+                        break
+                    fi
+                done
+            fi
+        fi
+        
+        if [[ "$still_running" != "true" ]]; then
+            break
+        fi
+        
         printf "\r[%s] Working..." "${frames[i]}"
         i=$(( (i + 1) % ${#frames[@]} ))
         sleep "$speed"
+        ((iterations++))
     done
+    
     # When the loop exits the command is finished
     local cols
     if [[ -t 1 ]]; then
@@ -475,8 +506,7 @@ spinner() {
 # 5️⃣  Hook: preexec → start spinner --------------------------------
 preexec() {
     # $BASH_COMMAND contains the command line that is about to be executed.
-    # $$ is the PID of the current shell – the spinner will watch **that**
-    # PID because the command runs as a *child* of the shell.
+    # For pipelines and complex commands, we need a different approach.
     
     # 🕐  Record command start time if timer is enabled
     local cmd="$1"
@@ -505,8 +535,60 @@ preexec() {
         return
     fi
 
-    (spinner "$$") &
+    # For pipeline commands, we use a different strategy:
+    # Create a background process that monitors the shell state
+    # instead of trying to track individual command PIDs
+    (
+        # Create a unique marker file to track this command execution
+        local marker_file="/tmp/hhgttg_spinner_$$_$RANDOM"
+        touch "$marker_file" 2>/dev/null || marker_file=""
+        
+        # Enhanced spinner that checks for command completion
+        local speed="${HHGTTG_SPINNER_SPEED:-0.12}"
+        local frames=($( _hhg_spinners ))
+        local i=0
+        local colour="\e[33m"
+        local max_time=300  # 5 minutes maximum
+        local elapsed=0
+        
+        printf "%b" "$colour"
+        
+        # Monitor until the parent shell indicates completion
+        # or we hit the time limit
+        while [[ $elapsed -lt $max_time ]]; do
+            # Check if marker file still exists (removed by precmd)
+            if [[ -n "$marker_file" && ! -f "$marker_file" ]]; then
+                break
+            fi
+            
+            # Check if parent shell is still our parent
+            if ! kill -0 $$ 2>/dev/null; then
+                break
+            fi
+            
+            printf "\r[%s] Working..." "${frames[i]}"
+            i=$(( (i + 1) % ${#frames[@]} ))
+            sleep "$speed"
+            elapsed=$((elapsed + 1))
+        done
+        
+        # Clean up marker file
+        [[ -n "$marker_file" ]] && rm -f "$marker_file" 2>/dev/null
+        
+        # Clear the spinner line
+        local cols
+        if [[ -t 1 ]]; then
+            cols="$(tput cols 2>/dev/null || echo 0)"
+        else
+            cols=0
+        fi
+        printf "\r\e[32m✔️ Done!%*s\e[0m\n" "$cols" ""
+    ) &
+    
     SPINNER_PID=$!
+    # Store the marker file path for cleanup in precmd
+    SPINNER_MARKER="/tmp/hhgttg_spinner_$$_$RANDOM"
+    
     # TEST_MODE: output SPINNER_PID so Bats can capture it
     if [[ -n "$HHG_TEST_MODE" ]]; then
         echo "$SPINNER_PID"
@@ -520,6 +602,12 @@ precmd() {
     if [[ -n "$SPINNER_PID" ]]; then
         kill "$SPINNER_PID" 2>/dev/null || true
         unset SPINNER_PID
+    fi
+    
+    # Clean up spinner marker file if it exists
+    if [[ -n "${SPINNER_MARKER:-}" ]]; then
+        rm -f "$SPINNER_MARKER" 2>/dev/null || true
+        unset SPINNER_MARKER
     fi
 
     # 🕐  Calculate and display execution time if timer is enabled
