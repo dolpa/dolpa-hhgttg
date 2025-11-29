@@ -221,3 +221,32 @@ Meanwhile, my blog and socials are just sitting there, waiting for attention:
 - 👽 **Reddit:** [Reddit Profile](https://www.reddit.com/user/Accomplished_Try_928/)
 - 💬 **Telegram:** [Telegram Channel](https://t.me/dolpa_me)
 - ▶️ **YouTube:** [YouTube Channel](https://www.youtube.com/c/PavelDolinin)
+
+## Running tests in Docker
+
+You can run the full test suite in an isolated Docker container using the provided `Dockerfile`.
+
+### Build the Docker image
+
+From the repository root, build the image:
+
+```bash
+docker build -t hhgttg-test .
+```
+
+### Run the tests in the container
+
+Run the container (it will execute `run-tests.sh` and exit with the test result):
+
+```bash
+docker run -ti --rm hhgttg-test
+```
+
+This will:
+- Install all required dependencies (bash, curl, wget, git, unzip, procps, bats-core)
+- Copy your repository into the container
+- Run the test suite using `run-tests.sh` (which runs all Bats tests)
+
+The container runs as root, so all install steps will succeed without permission issues. The test results will be printed to your terminal.
+
+If you want to run the tests in a different environment, you can modify the Dockerfile as needed.
