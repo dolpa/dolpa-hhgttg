@@ -210,17 +210,6 @@ Uninstall
 - If your system uses a different profile file (e.g., `~/.bash_profile`), add the
 	sourcing block there instead or adapt `install.sh` accordingly.
 
-Enjoy — and whatever you do, don’t panic! 
-Meanwhile, my blog and socials are just sitting there, waiting for attention:
-- 🌐 **Blog:** [dolpa.me](https://dolpa.me)
-- 📡 **RSS Feed:** [Subscribe via RSS](https://dolpa.me/rss)
-- 🐙 **GitHub:** [dolpa on GitHub](https://github.com/dolpa)
-- 📘 **Facebook:** [Facebook Page](https://www.facebook.com/dolpa79)
-- 🐦 **Twitter (X):** [Twitter Profile](https://x.com/_dolpa)
-- 💼 **LinkedIn:** [LinkedIn Profile](https://www.linkedin.com/in/paveldolinin/)
-- 👽 **Reddit:** [Reddit Profile](https://www.reddit.com/user/Accomplished_Try_928/)
-- 💬 **Telegram:** [Telegram Channel](https://t.me/dolpa_me)
-- ▶️ **YouTube:** [YouTube Channel](https://www.youtube.com/c/PavelDolinin)
 
 ## Running tests in Docker
 
@@ -250,3 +239,15 @@ This will:
 The container runs as root, so all install steps will succeed without permission issues. The test results will be printed to your terminal.
 
 If you want to run the tests in a different environment, you can modify the Dockerfile as needed.
+
+Enjoy — and whatever you do, don’t panic! 
+Meanwhile, my blog and socials are just sitting there, waiting for attention:
+- 🌐 **Blog:** [dolpa.me](https://dolpa.me)
+- 📡 **RSS Feed:** [Subscribe via RSS](https://dolpa.me/rss)
+- 🐙 **GitHub:** [dolpa on GitHub](https://github.com/dolpa)
+- 📘 **Facebook:** [Facebook Page](https://www.facebook.com/dolpa79)
+- 🐦 **Twitter (X):** [Twitter Profile](https://x.com/_dolpa)
+- 💼 **LinkedIn:** [LinkedIn Profile](https://www.linkedin.com/in/paveldolinin/)
+- 👽 **Reddit:** [Reddit Profile](https://www.reddit.com/user/Accomplished_Try_928/)
+- 💬 **Telegram:** [Telegram Channel](https://t.me/dolpa_me)
+- ▶️ **YouTube:** [YouTube Channel](https://www.youtube.com/c/PavelDolinin)
