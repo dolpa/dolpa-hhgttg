@@ -197,22 +197,30 @@ setup() {
   load_module
   
   export HHGTTG_TIMERS_SET="true"
-  COMMAND_START_TIME="1234567890.000"
+  COMMAND_START_TIME="1234567890.000000000"
   COMMAND_TEXT="quick command"
   
-  # Mock date command to simulate 0.0005 seconds elapsed (less than 1ms threshold)
+  # Mock date command to simulate 0.00001 seconds elapsed (0.01ms - well below 1ms threshold)
   date() {
     if [[ "$*" == "+%s.%N" ]]; then
-      echo "1234567890.0005"
+      echo "1234567890.000010000"
     fi
   }
   export -f date
   
+  # Debug: Test the duration calculation directly
+  local test_duration=$(_hhg_calc_duration "$COMMAND_START_TIME" "1234567890.000010000")
+  echo "DEBUG: calculated duration = '$test_duration'" >&3
+  local threshold_test=$(_hhg_float_gt "$test_duration" "0.001")
+  echo "DEBUG: is $test_duration > 0.001? exit code = $?" >&3
+  
   # Capture output by running precmd in the current shell (so it clears globals)
   tmpfile="$(mktemp)"
-  precmd >"$tmpfile"
+  precmd >"$tmpfile" 2>&1
   output="$(cat "$tmpfile")"
   rm -f "$tmpfile"
+  
+  echo "DEBUG: precmd output = '$output'" >&3
   
   # Should not show execution time
   [[ ! "$output" =~ "⏱️  Execution time" ]]
