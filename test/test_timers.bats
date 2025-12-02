@@ -220,11 +220,12 @@ setup() {
   output="$(cat "$tmpfile")"
   rm -f "$tmpfile"
   
-  echo "DEBUG: precmd output = '$output'" >&3
-  
+  # DEBUG: Print output for diagnosis
+  echo "[DEBUG] precmd output: $output" >&2
+
   # Should not show execution time
   [[ ! "$output" =~ "⏱️  Execution time" ]]
-  
+
   # Should still clear timer variables
   [[ -z "$COMMAND_START_TIME" ]]
   [[ -z "$COMMAND_TEXT" ]]
