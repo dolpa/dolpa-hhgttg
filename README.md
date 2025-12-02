@@ -210,6 +210,36 @@ Uninstall
 - If your system uses a different profile file (e.g., `~/.bash_profile`), add the
 	sourcing block there instead or adapt `install.sh` accordingly.
 
+
+## Running tests in Docker
+
+You can run the full test suite in an isolated Docker container using the provided `Dockerfile`.
+
+### Build the Docker image
+
+From the repository root, build the image:
+
+```bash
+docker build -t hhgttg-test .
+```
+
+### Run the tests in the container
+
+Run the container (it will execute `run-tests.sh` and exit with the test result):
+
+```bash
+docker run -ti --rm hhgttg-test
+```
+
+This will:
+- Install all required dependencies (bash, curl, wget, git, unzip, procps, bats-core)
+- Copy your repository into the container
+- Run the test suite using `run-tests.sh` (which runs all Bats tests)
+
+The container runs as root, so all install steps will succeed without permission issues. The test results will be printed to your terminal.
+
+If you want to run the tests in a different environment, you can modify the Dockerfile as needed.
+
 Enjoy — and whatever you do, don’t panic! 
 Meanwhile, my blog and socials are just sitting there, waiting for attention:
 - 🌐 **Blog:** [dolpa.me](https://dolpa.me)
