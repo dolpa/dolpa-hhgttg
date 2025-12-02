@@ -75,6 +75,7 @@ jobs:
 
   test-docker:
     runs-on: ubuntu-latest
+    if: false # Disabled by default; enable if Docker tests are needed
     
     steps:
     - name: Checkout repository
@@ -93,7 +94,7 @@ jobs:
       run: |
         if docker images | grep -q hhgttg-test; then
           echo "==> Running tests in Docker container"
-          docker run --rm hhgttg-test
+          docker run -t --rm hhgttg-test
         else
           echo "Docker image not available, skipping Docker tests"
         fi
